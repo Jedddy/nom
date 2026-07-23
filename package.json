@@ -1,6 +1,6 @@
 {
   "name": "@nom-ai/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect AI tool calls to app-owned React components.",
   "type": "module",
   "sideEffects": false,
@@ -77,5 +77,6 @@
     "react-dom": "^19.2.8",
     "typescript": "^5.9.3",
     "vite": "^7.0.0"
-  }
+  },
+  "license": "MIT"
 }

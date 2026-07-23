@@ -26,11 +26,15 @@ const packedFiles = stdout
   .map((line) => line.match(/^packed\s+\S+\s+(.+)$/)?.[1])
   .filter((file): file is string => Boolean(file));
 
-const requiredFiles = [
+const requiredStaticFiles = new Set([
   "package.json",
   "README.md",
+  "LICENSE",
   "docs/architecture.md",
   "docs/ai-sdk.md",
+]);
+const requiredFiles = [
+  ...requiredStaticFiles,
   "dist/index.js",
   "dist/index.d.ts",
   "dist/core/index.js",
@@ -59,12 +63,7 @@ for (const file of reactEntrypoints) {
 }
 
 const unexpectedFiles = packedFiles.filter(
-  (file) =>
-    file !== "package.json" &&
-    file !== "README.md" &&
-    file !== "docs/architecture.md" &&
-    file !== "docs/ai-sdk.md" &&
-    !file.startsWith("dist/"),
+  (file) => !requiredStaticFiles.has(file) && !file.startsWith("dist/"),
 );
 if (unexpectedFiles.length > 0) {
   throw new Error(`Packed artifact contains unexpected files: ${unexpectedFiles.join(", ")}`);
