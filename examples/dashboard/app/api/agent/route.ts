@@ -2,7 +2,7 @@ import "server-only";
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, stepCountIs, tool } from "ai";
-import { createAISDKServerTools } from "nom/ai-sdk";
+import { createAISDKServerTools } from "@nom-ai/sdk/ai-sdk";
 import { z } from "zod";
 
 import {

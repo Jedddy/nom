@@ -2,9 +2,9 @@
 
 `nom` has three layers with one-way dependencies:
 
-1. `nom/core` owns schemas, registration, manifests, execution, authorization, lifecycle, and concurrency. It imports neither React nor AI SDK.
-2. `nom/react` registers components in effects and subscribes to per-instance snapshots with `useSyncExternalStore`.
-3. `nom/ai-sdk` translates active addresses and lifecycle events to AI SDK 6. It is the only entry that imports `ai` at runtime.
+1. `@nom-ai/sdk/core` owns schemas, registration, manifests, execution, authorization, lifecycle, and concurrency. It imports neither React nor AI SDK.
+2. `@nom-ai/sdk/react` registers components in effects and subscribes to per-instance snapshots with `useSyncExternalStore`.
+3. `@nom-ai/sdk/ai-sdk` translates active addresses and lifecycle events to AI SDK 6. It is the only entry that imports `ai` at runtime.
 
 Host-owned default tools also live at the AI SDK boundary. They are merged into the model tool set but excluded from component routing, manifests, lifecycle state, and browser forwarding.
 

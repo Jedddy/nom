@@ -5,7 +5,7 @@ A compact Next.js App Router example where one prompt can update one or several 
 ## Install
 
 ```bash
-npm install nom ai @ai-sdk/openai zod
+npm install @nom-ai/sdk ai @ai-sdk/openai zod
 npx shadcn@latest add alert badge button card field input skeleton spinner table
 ```
 

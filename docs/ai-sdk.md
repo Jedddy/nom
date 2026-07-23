@@ -7,7 +7,7 @@ The adapter uses AI SDK 6 Core types and does not import `@ai-sdk/react` at runt
 When the controller and model tools run in one JavaScript runtime, create tools directly from the active controller:
 
 ```ts
-import { createAISDKTools } from "nom/ai-sdk";
+import { createAISDKTools } from "@nom-ai/sdk/ai-sdk";
 
 const adapter = createAISDKTools(controller);
 const result = streamText({ model, tools: adapter.tools, prompt });
@@ -53,7 +53,7 @@ AI SDK needs multiple steps when a default tool must execute before the model se
 The browser sends an address-only active manifest:
 
 ```ts
-import { toActiveAgentManifest } from "nom/ai-sdk";
+import { toActiveAgentManifest } from "@nom-ai/sdk/ai-sdk";
 
 const activeManifest = toActiveAgentManifest(controller.getManifest());
 ```
@@ -61,7 +61,7 @@ const activeManifest = toActiveAgentManifest(controller.getManifest());
 Treat that value as untrusted routing input on the server. Resolve every address through a server-owned catalog:
 
 ```ts
-import { createAISDKServerTools } from "nom/ai-sdk";
+import { createAISDKServerTools } from "@nom-ai/sdk/ai-sdk";
 
 const adapter = createAISDKServerTools(activeManifest, {
   defaultTools: { get_current_date: getCurrentDate },

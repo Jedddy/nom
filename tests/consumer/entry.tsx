@@ -1,6 +1,6 @@
 import { renderToString } from "react-dom/server";
 
-import { AgentComponentController, AgentComponentProvider } from "nom";
+import { AgentComponentController, AgentComponentProvider } from "@nom-ai/sdk";
 
 const controller = new AgentComponentController();
 const html = renderToString(

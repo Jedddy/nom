@@ -8,8 +8,8 @@ import {
   AgentComponentProvider,
   type AgentComponentResult,
   defineAgentTool,
-} from "nom";
-import { AISDKClientBridge, createAIToolRouting, toActiveAgentManifest } from "nom/ai-sdk";
+} from "@nom-ai/sdk";
+import { AISDKClientBridge, createAIToolRouting, toActiveAgentManifest } from "@nom-ai/sdk/ai-sdk";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

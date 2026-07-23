@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "nom",
+      "name": "@nom-ai/sdk",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
       },

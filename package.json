@@ -1,5 +1,5 @@
 {
-  "name": "nom",
+  "name": "@nom-ai/sdk",
   "version": "0.1.0",
   "description": "Connect AI tool calls to app-owned React components.",
   "type": "module",
@@ -13,6 +13,9 @@
     "docs/architecture.md",
     "docs/ai-sdk.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -7,7 +7,7 @@ Connect AI tool calls to React component props.
 ## Installation
 
 ```bash
-bun add nom zod
+bun add @nom-ai/sdk zod
 ```
 
 The examples use Zod 4. You can use another schema library that implements Standard Schema and Standard JSON Schema.
@@ -21,7 +21,7 @@ Create one controller and mount its provider near your application root:
 "use client";
 
 import type { ReactNode } from "react";
-import { AgentComponentController, AgentComponentProvider } from "nom";
+import { AgentComponentController, AgentComponentProvider } from "@nom-ai/sdk";
 
 export const agentComponents = new AgentComponentController();
 
@@ -41,7 +41,7 @@ Register an existing component and describe how tool output becomes its props:
 ```tsx
 // src/components/AgentProductTable.tsx
 import { z } from "zod";
-import { AgentComponent, defineAgentTool } from "nom";
+import { AgentComponent, defineAgentTool } from "@nom-ai/sdk";
 import { ProductTable } from "./ProductTable";
 import { ProductTableSkeleton } from "./ProductTableSkeleton";
 
@@ -107,7 +107,7 @@ npm install ai
 
 ```ts
 import { generateText } from "ai";
-import { createAISDKTools } from "nom/ai-sdk";
+import { createAISDKTools } from "@nom-ai/sdk/ai-sdk";
 
 const { tools } = createAISDKTools(agentComponents);
 
@@ -133,7 +133,7 @@ Use `defaultTools` for host-owned context tools that are available independently
 ```ts
 import { generateText, stepCountIs, tool } from "ai";
 import { z } from "zod";
-import { createAISDKTools } from "nom/ai-sdk";
+import { createAISDKTools } from "@nom-ai/sdk/ai-sdk";
 
 const getCurrentDate = tool({
   description:
@@ -195,14 +195,14 @@ const agentComponents = new AgentComponentController({
 
 ## Package exports
 
-| Import       | Purpose                                 |
-| ------------ | --------------------------------------- |
-| `nom`        | React components, hooks, and core APIs. |
-| `nom/core`   | React-free controller and contracts.    |
-| `nom/react`  | React integration.                      |
-| `nom/ai-sdk` | AI SDK 6 adapter.                       |
+| Import               | Purpose                                 |
+| -------------------- | --------------------------------------- |
+| `@nom-ai/sdk`        | React components, hooks, and core APIs. |
+| `@nom-ai/sdk/core`   | React-free controller and contracts.    |
+| `@nom-ai/sdk/react`  | React integration.                      |
+| `@nom-ai/sdk/ai-sdk` | AI SDK 6 adapter.                       |
 
-React 18.3 and 19 are supported. The `ai` package is an optional peer dependency required only when importing `nom/ai-sdk`.
+React 18.3 and 19 are supported. The `ai` package is an optional peer dependency required only when importing `@nom-ai/sdk/ai-sdk`.
 
 See [Architecture](docs/architecture.md) for the protocol, concurrency behavior, and trust boundaries.
 

@@ -26,7 +26,7 @@ async function verifyCoreOnlyConsumer(packageReference: string): Promise<void> {
   await writeJSON(join(consumerRoot, "package.json"), {
     private: true,
     type: "module",
-    dependencies: { nom: packageReference },
+    dependencies: { "@nom-ai/sdk": packageReference },
   });
   await copyFile(
     resolve(projectRoot, "tests/consumer/core-entry.mjs"),
@@ -44,7 +44,7 @@ async function verifyReactConsumer(packageReference: string): Promise<void> {
     private: true,
     type: "module",
     dependencies: {
-      nom: packageReference,
+      "@nom-ai/sdk": packageReference,
       react: reactVersion,
       "react-dom": reactVersion,
     },
