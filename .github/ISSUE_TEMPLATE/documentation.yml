@@ -1,0 +1,32 @@
+name: Documentation improvement
+description: Report missing, unclear, or incorrect documentation.
+title: "[Docs]: "
+labels: [documentation, "needs triage"]
+body:
+  - type: textarea
+    id: issue
+    attributes:
+      label: What needs improvement?
+      description: Tell us what was unclear, missing, or incorrect.
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where did you encounter it?
+      description: Link the documentation page, source file, or section heading.
+      placeholder: https://github.com/Jedddy/nom/blob/main/README.md#quick-start
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-change
+    attributes:
+      label: Suggested change
+      description: Share the wording, example, or explanation that would make this clearer.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true

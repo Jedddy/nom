@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a concrete improvement to nom.
+title: "[Feature]: "
+labels: [enhancement, "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing an idea. Start with the problem so we can evaluate the outcome before settling on an implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Who has this problem, and what becomes difficult or impossible today?
+      placeholder: When I ..., I cannot ... because ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the API, behavior, or user experience you would like.
+      placeholder: It could work like ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workarounds or other approaches have you tried?
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example usage
+      description: If helpful, show a short example of the API or workflow you have in mind.
+      render: tsx
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for similar proposals.
+          required: true
+        - label: I am willing to help test or contribute this feature.
+          required: false

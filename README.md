@@ -125,6 +125,7 @@ For a web application where the model runs on the server and components run in t
 ## Examples
 
 - [Compact dashboard](examples/dashboard) — a copy-ready Next.js and shadcn example where a natural-language request can update sales, orders, or both.
+- [Product search](examples/product-search) — a compact shadcn example where natural-language filters update product results.
 
 ## Default tools
 
