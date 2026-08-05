@@ -36,7 +36,15 @@ jobs:
       - name: Check internal links in the exported bundle
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --offline --include-fragments --no-progress docs/site/out
+          # --root-dir is required: the exported pages link with absolute paths
+          # (/docs/concepts/), and without it lychee flags every one as an error
+          # because it has no way to know what `/` maps to on disk.
+          args: >-
+            --offline
+            --no-progress
+            --include-fragments
+            --root-dir ${{ github.workspace }}/docs/site/out
+            docs/site/out
           fail: true
           workingDirectory: ${{ github.workspace }}
 
