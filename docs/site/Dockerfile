@@ -17,7 +17,7 @@ COPY docs/site/package.json docs/site/bun.lock ./docs/site/
 RUN cd docs/site && bun install --frozen-lockfile
 
 # The included markdown lives outside docs/site, so both paths are copied.
-COPY docs/architecture.md docs/ai-sdk.md ./docs/
+COPY docs/architecture.md docs/ai-sdk.md docs/devtools.md ./docs/
 COPY docs/site ./docs/site
 
 RUN cd docs/site && bun run build

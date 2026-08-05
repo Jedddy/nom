@@ -1,10 +1,9 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 
 import { AgentComponentController } from "../core/index.js";
-
-const AgentComponentContext = createContext<AgentComponentController | null>(null);
+import { AgentComponentContext } from "./context.js";
 
 /** Props for the provider that shares a controller with agent-addressable components. */
 export interface AgentComponentProviderProps {

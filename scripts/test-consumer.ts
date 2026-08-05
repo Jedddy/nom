@@ -15,6 +15,7 @@ try {
   const packageReference = `file:${archive.replaceAll("\\", "/")}`;
   await verifyCoreOnlyConsumer(packageReference);
   await verifyReactConsumer(packageReference);
+  await verifyDevtoolsConsumer(packageReference);
   console.log("Packed consumer checks passed.");
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
@@ -37,7 +38,39 @@ async function verifyCoreOnlyConsumer(packageReference: string): Promise<void> {
 }
 
 async function verifyReactConsumer(packageReference: string): Promise<void> {
-  const consumerRoot = join(temporaryRoot, "react");
+  const consumerRoot = await scaffoldReactConsumer(
+    packageReference,
+    "react",
+    "tests/consumer/entry.tsx",
+  );
+  await run([bun, "--no-install", "entry.tsx"], consumerRoot);
+}
+
+/**
+ * The devtools panel ships from its own subpath (R17/KTD7), so it gets its own consumer project
+ * rather than riding along in the React one: nothing but the root and devtools entries is
+ * imported here, which is what makes the "root carries no devtools symbols" assertion mean
+ * something. It still needs React installed, so it reuses the React consumer's scaffolding.
+ */
+async function verifyDevtoolsConsumer(packageReference: string): Promise<void> {
+  const consumerRoot = await scaffoldReactConsumer(
+    packageReference,
+    "devtools",
+    "tests/consumer/devtools-entry.tsx",
+  );
+  await run([bun, "--no-install", "entry.tsx"], consumerRoot);
+}
+
+/**
+ * Installs the packed tarball plus React into a fresh project, copies `entrySource` in as
+ * `entry.tsx`, and type-checks it. Returns the project directory so the caller can run it.
+ */
+async function scaffoldReactConsumer(
+  packageReference: string,
+  directoryName: string,
+  entrySource: string,
+): Promise<string> {
+  const consumerRoot = join(temporaryRoot, directoryName);
   const reactVersion = getReactVersion();
   await mkdir(consumerRoot);
   await writeJSON(join(consumerRoot, "package.json"), {
@@ -53,7 +86,7 @@ async function verifyReactConsumer(packageReference: string): Promise<void> {
       "@types/react-dom": reactVersion.startsWith("18") ? "^18.3.0" : "^19.2.0",
     },
   });
-  await copyFile(resolve(projectRoot, "tests/consumer/entry.tsx"), join(consumerRoot, "entry.tsx"));
+  await copyFile(resolve(projectRoot, entrySource), join(consumerRoot, "entry.tsx"));
   await writeJSON(join(consumerRoot, "tsconfig.json"), {
     compilerOptions: {
       target: "ES2022",
@@ -72,7 +105,8 @@ async function verifyReactConsumer(packageReference: string): Promise<void> {
     [bun, resolve(projectRoot, "node_modules/typescript/bin/tsc"), "-p", "tsconfig.json"],
     consumerRoot,
   );
-  await run([bun, "--no-install", "entry.tsx"], consumerRoot);
+
+  return consumerRoot;
 }
 
 async function writeJSON(path: string, value: unknown): Promise<void> {

@@ -128,6 +128,7 @@ For a web application where the model runs on the server and components run in t
 
 - [Compact dashboard](examples/dashboard) — a copy-ready Next.js and shadcn example where a natural-language request can update sales, orders, or both.
 - [Product search](examples/product-search) — a compact shadcn example where natural-language filters update product results.
+- [Devtools lab](examples/devtools) — every pipeline outcome on a button, read back through the event stream and the panel. No model or API key required.
 
 ## Default tools
 
@@ -178,16 +179,17 @@ const agentComponents = new AgentComponentController({
 
 ## Package exports
 
-| Import               | Purpose                                 |
-| -------------------- | --------------------------------------- |
-| `@nom-ai/sdk`        | React components, hooks, and core APIs. |
-| `@nom-ai/sdk/core`   | React-free controller and contracts.    |
-| `@nom-ai/sdk/react`  | React integration.                      |
-| `@nom-ai/sdk/ai-sdk` | AI SDK 6 adapter.                       |
+| Import                 | Purpose                                 |
+| ---------------------- | --------------------------------------- |
+| `@nom-ai/sdk`          | React components, hooks, and core APIs. |
+| `@nom-ai/sdk/core`     | React-free controller and contracts.    |
+| `@nom-ai/sdk/react`    | React integration.                      |
+| `@nom-ai/sdk/ai-sdk`   | AI SDK 6 adapter.                       |
+| `@nom-ai/sdk/devtools` | Pipeline event panel. Development only. |
 
 React 18.3 and 19 are supported. The `ai` package is an optional peer dependency required only when importing `@nom-ai/sdk/ai-sdk`.
 
-See [Architecture](docs/architecture.md) for the protocol, concurrency behavior, and trust boundaries.
+See [Architecture](docs/architecture.md) for the protocol, concurrency behavior, and trust boundaries, and [Devtools](docs/devtools.md) for the event stream and the panel.
 
 ## Development
 

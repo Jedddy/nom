@@ -8,9 +8,22 @@ import type {
   AgentToolApproval,
   AgentToolContext,
 } from "./contracts.js";
-import { AgentComponentError, type AgentComponentErrorCode } from "./errors.js";
+import {
+  AgentComponentError,
+  SchemaValidationError,
+  type AgentComponentErrorCode,
+} from "./errors.js";
+import type {
+  AgentPipelineEvent,
+  AgentPipelineEventContext,
+  AgentPipelineEventListener,
+  AgentPipelineIssuePath,
+  AgentPipelinePayload,
+  AgentRequestFailedEvent,
+} from "./events.js";
 import { AgentComponentRegistry } from "./registry.js";
 import { validateSchema } from "./schema.js";
+import { summarizePayload, type AgentPayloadMode } from "./summarize.js";
 import { createFailureSnapshot, idleSnapshot, type AgentComponentSnapshot } from "./state.js";
 
 /** Requests local execution of a registered component tool. */
@@ -73,12 +86,67 @@ export interface AgentControllerErrorEvent {
   readonly error: AgentComponentError;
 }
 
+/**
+ * Number of pipeline events retained for the devtools panel by default.
+ *
+ * One successful request emits seven events, so this retains roughly the last thirty
+ * requests — far enough back to cover the supersession and retry sequences a developer
+ * scrolls to, while keeping the retained set small enough to hold and render. It applies
+ * only once devtools options are supplied; a controller without them retains nothing.
+ */
+const DEFAULT_HISTORY_LIMIT = 200;
+
+/**
+ * Devtools capabilities for one controller, each opted into independently.
+ *
+ * Authority stays with the host that constructs the controller: mounting the panel never
+ * grants a capability that was not enabled here.
+ */
+export interface AgentDevtoolsOptions {
+  /**
+   * Attaches raw input, output, and props values to events instead of structural summaries.
+   *
+   * Enabling it delivers host data to every subscriber on this controller, including any
+   * logging or telemetry integration that subscribes.
+   */
+  readonly verbatimPayloads?: boolean;
+  /**
+   * Allows the panel to fire tool calls, the only devtools capability that writes.
+   *
+   * Separate from the payload switch because read sensitivity and write capability are
+   * different risks; the panel hides the control entirely while this is off.
+   */
+  readonly mockFire?: boolean;
+  /** Maximum number of retained events; the oldest are discarded past it. */
+  readonly historyLimit?: number;
+}
+
+/** The devtools configuration a controller resolved at construction, fixed for its lifetime. */
+export interface AgentDevtoolsSettings {
+  /** Whether the host supplied devtools options at all. */
+  readonly enabled: boolean;
+  /** Which of the two payload modes events on this controller carry. */
+  readonly payloadMode: AgentPayloadMode;
+  /** Whether the panel may fire tool calls. */
+  readonly mockFire: boolean;
+  /**
+   * Number of events retained for a subscriber that attaches later.
+   *
+   * Zero when the host supplied no devtools options, because retention is itself a
+   * devtools capability: an unconfigured controller in a production build must not
+   * accumulate events for a panel that will never read them.
+   */
+  readonly historyLimit: number;
+}
+
 /** Host policies and diagnostics for an {@link AgentComponentController}. */
 export interface AgentComponentControllerOptions {
   /** Approves or denies tool calls; approval-required tools deny by default. */
   readonly authorize?: (request: AgentAuthorizationRequest) => boolean | Promise<boolean>;
   /** Receives the detailed error while render-facing snapshots remain redacted. */
   readonly onError?: (event: AgentControllerErrorEvent) => void;
+  /** Enables and configures the devtools event stream for this controller. */
+  readonly devtools?: AgentDevtoolsOptions;
 }
 
 type StateListener = () => void;
@@ -90,6 +158,8 @@ interface ActiveRequest {
   readonly requestId: string;
   readonly abortController: AbortController;
   readonly releaseExternalAbort: () => void;
+  /** Guards the terminal event, which a superseded request reaches twice. */
+  terminalEmitted: boolean;
 }
 
 /**
@@ -100,13 +170,21 @@ interface ActiveRequest {
 export class AgentComponentController {
   readonly #activeRequests = new Map<string, ActiveRequest>();
   readonly #listeners = new Map<string, Set<StateListener>>();
+  readonly #eventListeners = new Set<AgentPipelineEventListener>();
   readonly #registry = new AgentComponentRegistry();
   readonly #snapshots = new Map<string, AgentComponentSnapshot>();
   readonly #options: AgentComponentControllerOptions;
+  readonly #devtools: AgentDevtoolsSettings;
+  /** Ring of retained events; `#historyNext` marks the oldest slot once it is full. */
+  readonly #history: AgentPipelineEvent[] = [];
+  #historyNext = 0;
+  /** Cached read snapshot, discarded when an event is recorded so identity tracks writes. */
+  #historySnapshot: readonly AgentPipelineEvent[] | undefined;
   #requestSequence = 0;
 
   constructor(options: AgentComponentControllerOptions = {}) {
     this.#options = options;
+    this.#devtools = resolveDevtoolsSettings(options.devtools);
   }
 
   /** Registers one component instance and returns its ownership handle. */
@@ -157,6 +235,31 @@ export class AgentComponentController {
     };
   }
 
+  /** Subscribes to pipeline events for every component and returns an unsubscribe function. */
+  subscribeEvents(listener: AgentPipelineEventListener): () => void {
+    this.#eventListeners.add(listener);
+    return () => {
+      this.#eventListeners.delete(listener);
+    };
+  }
+
+  /** Returns the retained pipeline events; the array identity changes only on a new event. */
+  getEvents(): readonly AgentPipelineEvent[] {
+    const snapshot = this.#historySnapshot ?? this.#materializeHistory();
+    this.#historySnapshot = snapshot;
+    return snapshot;
+  }
+
+  /**
+   * Returns the devtools capabilities this controller was constructed with.
+   *
+   * The result is frozen and never changes: a panel can render which payload mode is
+   * active and whether mock-fire is available, but cannot turn either on.
+   */
+  getDevtoolsSettings(): AgentDevtoolsSettings {
+    return this.#devtools;
+  }
+
   /** Validates, authorizes, executes, validates output, maps props, and publishes lifecycle state. */
   async execute(request: AgentComponentExecutionRequest): Promise<unknown> {
     const tool = this.#resolveTool(request.componentId, request.toolKey);
@@ -169,6 +272,11 @@ export class AgentComponentController {
         () => validateSchema(tool.inputSchema, request.input),
       );
       this.#assertCurrent(activeRequest);
+      this.#emit({
+        ...eventContext(activeRequest),
+        type: "input-validated",
+        ...this.#payload("input", input),
+      });
 
       const authorized = await runStage(
         "authorization-denied",
@@ -182,6 +290,7 @@ export class AgentComponentController {
           "The host application denied this tool request.",
         );
       }
+      this.#emit({ ...eventContext(activeRequest), type: "authorized" });
 
       const execute = tool.execute;
       if (!execute) {
@@ -198,6 +307,7 @@ export class AgentComponentController {
         () => execute(input, context),
       );
       this.#assertCurrent(activeRequest);
+      this.#emit({ ...eventContext(activeRequest), type: "executed" });
       return await this.#validateMapAndPublish(tool, output, context, activeRequest);
     } catch (cause) {
       throw this.#handleFailure(activeRequest, cause);
@@ -284,6 +394,11 @@ export class AgentComponentController {
       () => validateSchema(tool.outputSchema, rawOutput),
     );
     this.#assertCurrent(activeRequest);
+    this.#emit({
+      ...eventContext(activeRequest),
+      type: "output-validated",
+      ...this.#payload("output", output),
+    });
 
     const result = await runStage(
       "mapping-failed",
@@ -291,7 +406,11 @@ export class AgentComponentController {
       () => tool.mapOutput(output, context),
     );
     this.#assertCurrent(activeRequest);
-    this.#publishResult(activeRequest, result);
+    // Described once and shared, so the mapped stage and its terminal agree exactly.
+    const props: PayloadField<"props"> =
+      result.status === "success" ? this.#payload("props", result.props) : {};
+    this.#emit({ ...eventContext(activeRequest), type: "mapped", ...props });
+    this.#publishResult(activeRequest, result, props);
     return output;
   }
 
@@ -345,6 +464,13 @@ export class AgentComponentController {
     const previousRequest = this.#activeRequests.get(address.componentId);
     previousRequest?.abortController.abort();
     previousRequest?.releaseExternalAbort();
+    if (previousRequest) {
+      this.#emitTerminal(previousRequest, {
+        ...eventContext(previousRequest),
+        type: "request-failed",
+        code: "aborted",
+      });
+    }
 
     const abortController = new AbortController();
     const request: ActiveRequest = {
@@ -354,6 +480,7 @@ export class AgentComponentController {
       requestId: requestedId ?? `${address.componentId}:${++this.#requestSequence}`,
       abortController,
       releaseExternalAbort: connectAbortSignal(externalSignal, abortController),
+      terminalEmitted: false,
     };
     this.#activeRequests.set(address.componentId, request);
 
@@ -366,6 +493,12 @@ export class AgentComponentController {
         ...(previousProps === undefined ? {} : { previousProps }),
       }),
     );
+    this.#emit({
+      ...eventContext(request),
+      type: "request-started",
+      ...(previousRequest === undefined ? {} : { supersededRequestId: previousRequest.requestId }),
+      hasPreviousProps: previousProps !== undefined,
+    });
 
     return request;
   }
@@ -387,7 +520,11 @@ export class AgentComponentController {
     return this.#startRequest(address, requestedId);
   }
 
-  #publishResult(request: ActiveRequest, result: AgentComponentResult<unknown>): void {
+  #publishResult(
+    request: ActiveRequest,
+    result: AgentComponentResult<unknown>,
+    props: PayloadField<"props">,
+  ): void {
     this.#publish(
       request.componentId,
       result.status === "success"
@@ -398,11 +535,21 @@ export class AgentComponentController {
           })
         : Object.freeze({ status: "empty", requestId: request.requestId }),
     );
+    this.#emitTerminal(
+      request,
+      result.status === "success"
+        ? { ...eventContext(request), type: "request-succeeded", ...props }
+        : { ...eventContext(request), type: "request-empty" },
+    );
   }
 
   #handleFailure(request: ActiveRequest, cause: unknown): AgentComponentError {
     if (!this.#ownsRequest(request)) {
-      return new AgentComponentError("aborted", "The request is no longer current.", { cause });
+      const abortion = new AgentComponentError("aborted", "The request is no longer current.", {
+        cause,
+      });
+      this.#emitTerminal(request, failureEvent(request, abortion));
+      return abortion;
     }
 
     let error: AgentComponentError;
@@ -419,6 +566,7 @@ export class AgentComponentController {
 
   #publishFailure(request: ActiveRequest, error: AgentComponentError): void {
     this.#publish(request.componentId, createFailureSnapshot(request.requestId, error.code));
+    this.#emitTerminal(request, failureEvent(request, error));
     this.#options.onError?.({
       componentId: request.componentId,
       toolKey: request.toolKey,
@@ -469,6 +617,93 @@ export class AgentComponentController {
       listener();
     }
   }
+
+  #emitTerminal(request: ActiveRequest, event: AgentPipelineEvent): void {
+    if (request.terminalEmitted) {
+      return;
+    }
+    request.terminalEmitted = true;
+    this.#emit(event);
+  }
+
+  #emit(event: AgentPipelineEvent): void {
+    const recorded = Object.freeze(event);
+    this.#record(recorded);
+    for (const listener of this.#eventListeners) {
+      try {
+        listener(recorded);
+      } catch {
+        // A diagnostic listener must never change the outcome of a request.
+      }
+    }
+  }
+
+  /** Appends to the bounded ring, overwriting the oldest event once the bound is reached. */
+  #record(event: AgentPipelineEvent): void {
+    // Zero covers both a controller with no devtools options and one that opted out of
+    // retention explicitly; live delivery to subscribers is unaffected either way.
+    const limit = this.#devtools.historyLimit;
+    if (limit === 0) {
+      return;
+    }
+
+    if (this.#history.length < limit) {
+      this.#history.push(event);
+    } else {
+      this.#history[this.#historyNext] = event;
+      this.#historyNext = (this.#historyNext + 1) % limit;
+    }
+    this.#historySnapshot = undefined;
+  }
+
+  /** Reorders the ring oldest-first; only a read pays for it, so recording stays constant time. */
+  #materializeHistory(): readonly AgentPipelineEvent[] {
+    const oldestFirst = this.#history
+      .slice(this.#historyNext)
+      .concat(this.#history.slice(0, this.#historyNext));
+    return Object.freeze(oldestFirst);
+  }
+
+  /**
+   * Whether payloads are described at all for this request.
+   *
+   * A controller with no devtools options and no subscriber has nobody to describe them
+   * for, and the cost of describing lives in the summarizer's recursive walk, so the walk
+   * is skipped rather than merely discarded.
+   */
+  #describesPayloads(): boolean {
+    return this.#devtools.enabled || this.#eventListeners.size > 0;
+  }
+
+  #payload<TKey extends "input" | "output" | "props">(
+    key: TKey,
+    value: unknown,
+  ): PayloadField<TKey> {
+    if (!this.#describesPayloads()) {
+      return {};
+    }
+
+    return { [key]: summarizePayload(value, this.#devtools.payloadMode) } as PayloadField<TKey>;
+  }
+}
+
+/** The optional payload field one stage event carries, or nothing at all. */
+type PayloadField<TKey extends string> = Partial<Record<TKey, AgentPipelinePayload>>;
+
+function resolveDevtoolsSettings(options: AgentDevtoolsOptions | undefined): AgentDevtoolsSettings {
+  return Object.freeze({
+    enabled: options !== undefined,
+    payloadMode: options?.verbatimPayloads === true ? "verbatim" : "structural",
+    mockFire: options?.mockFire === true,
+    historyLimit: options === undefined ? 0 : resolveHistoryLimit(options.historyLimit),
+  });
+}
+
+function resolveHistoryLimit(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) {
+    return DEFAULT_HISTORY_LIMIT;
+  }
+  return Math.max(0, Math.floor(limit));
 }
 
 function createToolContext(request: ActiveRequest): AgentToolContext {
@@ -477,6 +712,45 @@ function createToolContext(request: ActiveRequest): AgentToolContext {
     requestId: request.requestId,
     signal: request.abortController.signal,
   };
+}
+
+function eventContext(request: ActiveRequest): AgentPipelineEventContext {
+  return {
+    componentId: request.componentId,
+    toolKey: request.toolKey,
+    requestId: request.requestId,
+    timestamp: Date.now(),
+  };
+}
+
+function failureEvent(request: ActiveRequest, error: AgentComponentError): AgentRequestFailedEvent {
+  const issuePaths = collectIssuePaths(error.cause);
+
+  return {
+    ...eventContext(request),
+    type: "request-failed",
+    code: error.code,
+    ...(issuePaths.length === 0 ? {} : { issuePaths }),
+  };
+}
+
+function collectIssuePaths(cause: unknown): readonly AgentPipelineIssuePath[] {
+  if (!(cause instanceof SchemaValidationError)) {
+    return [];
+  }
+
+  const paths: AgentPipelineIssuePath[] = [];
+  for (const issue of cause.issues) {
+    if (issue.path) {
+      paths.push(Object.freeze(issue.path.map(toPathSegment)));
+    }
+  }
+  return paths;
+}
+
+function toPathSegment(segment: PropertyKey | { readonly key: PropertyKey }): string | number {
+  const key = typeof segment === "object" ? segment.key : segment;
+  return typeof key === "number" ? key : String(key);
 }
 
 async function runStage<T>(

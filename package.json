@@ -11,7 +11,8 @@
     "dist",
     "README.md",
     "docs/architecture.md",
-    "docs/ai-sdk.md"
+    "docs/ai-sdk.md",
+    "docs/devtools.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -32,6 +33,10 @@
     "./ai-sdk": {
       "types": "./dist/ai-sdk/index.d.ts",
       "import": "./dist/ai-sdk/index.js"
+    },
+    "./devtools": {
+      "types": "./dist/devtools/index.d.ts",
+      "import": "./dist/devtools/index.js"
     },
     "./package.json": "./package.json"
   },

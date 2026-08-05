@@ -1,0 +1,70 @@
+---
+title: Devtools lab
+description: Driving every pipeline outcome and reading it back in the panel.
+---
+
+# Devtools example
+
+**What it demonstrates:** why a component holds stale, empty, or unexpected data. A set of
+buttons steers a request into each terminal the pipeline can reach, and the panel explains
+what the rendered component cannot.
+
+It needs no model and no API key. Every scenario calls `controller.execute` directly —
+the same path an AI adapter takes.
+
+Source: [`examples/devtools`](https://github.com/Jedddy/nom/tree/main/examples/devtools).
+These files are meant to be copied into an existing application; the directory is not a
+standalone app.
+
+## What the scenarios show
+
+| Scenario                       | What the timeline reports                                                         |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| Load shipments                 | Every stage in order, ending in a success terminal                                |
+| Map to empty                   | An empty terminal — the source answered and the mapper chose no data              |
+| Break the output shape         | Rejected at output validation, with issue paths and no rejected values            |
+| Fail the data source           | No output-validated stage; the request ends at `execution-failed`                 |
+| Throw in the mapper            | Output validated, then `mapping-failed`                                           |
+| Send invalid input             | Rejected at input validation; execution never runs                                |
+| Supersede an in-flight request | The second request names the first; the first ends as superseded, not failed      |
+| Refetch over prior content     | The second request is flagged as carrying previous props                          |
+| Load both components           | One timeline spanning two component ids                                           |
+| Call the approval-gated tool   | `authorization-denied`, or an authorized run once the host grants approval         |
+
+A refused output schema, a throwing mapper, and a mapper that returned empty all look the
+same at the render boundary — that redaction is deliberate, and
+[Architecture](/docs/architecture) explains why. Separating them without adding logging is
+what the panel is for.
+
+## Extras it covers
+
+- **A host event log** built on `subscribeEvents` and `getEvents` in
+  `useSyncExternalStore`, with no panel involved. The stream is public API in its own
+  right.
+- **A telemetry sink** built on the subscription alone, so it works on a controller
+  constructed with no `devtools` option. It reads identity fields and typed codes and never
+  touches a payload.
+- **Custom panel tabs** through `additionalTabs` — a per-component health tally and a JSON
+  export for bug reports.
+- **Two independent gates**: an environment flag deciding whether the panel's chunk is ever
+  requested, and constructor options deciding what the panel may see and do.
+- **Host-injected faults** that never appear in a tool's input schema, because a model must
+  not be able to ask for a broken response.
+
+## Running it
+
+```bash
+npm install @nom-ai/sdk lucide-react zod
+npx shadcn@latest add alert badge button card empty field separator skeleton spinner switch table
+```
+
+```bash
+# .env.local
+NEXT_PUBLIC_AGENT_DEVTOOLS=on
+# Optional: attaches raw values to events instead of structural summaries.
+NEXT_PUBLIC_AGENT_DEVTOOLS_PAYLOADS=verbatim
+```
+
+Copy the `components/`, `lib/`, and `app/api/` files into your app and render
+`<AgentDevtoolsLab />` from a page. See [Devtools](/docs/devtools) for the full contract,
+including what a host accepts by enabling `mockFire` or `verbatimPayloads`.

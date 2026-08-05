@@ -32,6 +32,7 @@ const requiredStaticFiles = new Set([
   "LICENSE",
   "docs/architecture.md",
   "docs/ai-sdk.md",
+  "docs/devtools.md",
 ]);
 const requiredFiles = [
   ...requiredStaticFiles,
@@ -43,6 +44,8 @@ const requiredFiles = [
   "dist/react/index.d.ts",
   "dist/ai-sdk/index.js",
   "dist/ai-sdk/index.d.ts",
+  "dist/devtools/index.js",
+  "dist/devtools/index.d.ts",
 ];
 
 for (const file of requiredFiles) {
@@ -51,7 +54,7 @@ for (const file of requiredFiles) {
   }
 }
 
-const reactEntrypoints = ["dist/index.js", "dist/react/index.js"];
+const reactEntrypoints = ["dist/index.js", "dist/react/index.js", "dist/devtools/index.js"];
 for (const file of reactEntrypoints) {
   const source = await Bun.file(resolve(projectRoot, file)).text();
   if (source.includes("react/jsx-dev-runtime") || source.includes("jsxDEV")) {

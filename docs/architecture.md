@@ -49,6 +49,8 @@ Model-visible results default to the acknowledgement `Component data loaded.` Co
 
 The client bridge scopes replay tracking to one chat, bounds tracked calls, deduplicates exact events, and fails closed when the same tool-call identity carries different input or terminal output.
 
+The pipeline event stream is a host-facing channel, not a render-facing one. Render-facing redaction is unchanged: snapshots still carry a typed code and a safe message. Events default to structural payload summaries and withhold error messages, cause chains, and schema issue strings. Two disclosure surfaces exist above that default, and a host accepts each one explicitly: the controller-wide verbatim switch, which delivers raw input, output, and mapped props to every subscriber on that controller, and the panel's manifest view, which shows instructions, tool descriptions, generated input schemas, and approval flags to anyone who can open it. Both are decided where the controller is constructed or mounted, never from the panel. See [Devtools](devtools.md).
+
 ## Server rendering
 
 React registration happens only in effects. During server rendering, the hook uses a shared idle server snapshot and performs no registration or execution. The controller should be created and owned by the client application boundary that hosts interactive components.

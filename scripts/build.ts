@@ -5,6 +5,7 @@ const entrypoints = [
   "src/core/index.ts",
   "src/react/index.ts",
   "src/ai-sdk/index.ts",
+  "src/devtools/index.ts",
 ];
 
 await rm("dist", { recursive: true, force: true });
