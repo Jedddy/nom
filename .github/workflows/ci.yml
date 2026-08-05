@@ -19,6 +19,35 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run check
 
+  docs-site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      # The site has its own dependency tree; the root install does not cover it.
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run build
+      - name: Check internal links in the exported bundle
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # --root-dir is required: the exported pages link with absolute paths
+          # (/docs/concepts/), and without it lychee flags every one as an error
+          # because it has no way to know what `/` maps to on disk.
+          args: >-
+            --offline
+            --no-progress
+            --include-fragments
+            --root-dir ${{ github.workspace }}/docs/site/out
+            docs/site/out
+          fail: true
+          workingDirectory: ${{ github.workspace }}
+
   react-compatibility:
     runs-on: ubuntu-latest
     strategy:

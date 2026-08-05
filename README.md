@@ -4,6 +4,8 @@ Connect AI tool calls to React component props.
 
 `nom` lets an agent load data into components already in your application. You define the tools, validate their inputs and outputs, and map the results to props. Your application keeps ownership of the model, data fetching, authorization, and rendering.
 
+**[Documentation →](https://nom.jpndev.xyz)** — concepts, a full getting-started walkthrough, and the examples.
+
 ## Installation
 
 ```bash
@@ -157,31 +159,11 @@ await generateText({
 
 Every default tool must have a non-empty model-facing description that explains when to call it. Adapter creation rejects undocumented default tools. Default tools execute through AI SDK and are not routed to React components. Use a multi-step call when the model may need a default tool before choosing component tools. Context does not expand a component's contract: each target component's input schema must still represent the resolved value.
 
-## Component lifecycle
+## Component lifecycle and the hook API
 
-The `AgentComponent` render function receives one of five snapshots:
+The `AgentComponent` render function receives one of five snapshots — `idle`, `loading`, `success`, `empty`, and `failure` — and only the latest request for a component can update it. `useAgentComponent` takes the same arguments and returns the snapshot directly when a render prop does not fit your structure.
 
-| Status    | Meaning                                                                             |
-| --------- | ----------------------------------------------------------------------------------- |
-| `idle`    | No request has run yet.                                                             |
-| `loading` | The tool is running. Previous successful props may be available as `previousProps`. |
-| `success` | Validated and mapped props are available as `props`.                                |
-| `empty`   | The tool explicitly returned no displayable result.                                 |
-| `failure` | Validation, authorization, execution, or mapping failed.                            |
-
-Only the latest request for a component can update it. Starting a newer request cancels the previous request when possible and prevents stale results from being rendered.
-
-## Hook API
-
-Use `useAgentComponent` when a render prop does not fit your component structure:
-
-```tsx
-const snapshot = useAgentComponent({
-  id: "product-table",
-  instructions: "Use this component to display matching products.",
-  tools: [searchProducts],
-});
-```
+See [Concepts](https://nom.jpndev.xyz/docs/concepts) for what each state means and [Getting Started](https://nom.jpndev.xyz/docs/getting-started) for the hook in context.
 
 ## Authorization
 

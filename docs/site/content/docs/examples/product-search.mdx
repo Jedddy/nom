@@ -1,0 +1,64 @@
+---
+title: Product search
+description: Natural-language filters driving one component's props.
+---
+
+# Product search example
+
+**What it demonstrates:** the narrowest useful shape — one component, one tool. A
+natural-language request becomes structured filters, the filters become a request to
+your API, and validated results become props.
+
+It is the clearest illustration of where the boundary sits: the model chooses *filters*,
+your application still owns *fetching* and *rendering*.
+
+Source: [`examples/product-search`](https://github.com/Jedddy/nom/tree/main/examples/product-search).
+These files are meant to be copied into an existing application; the directory is not a
+standalone app.
+
+## What the model sees
+
+The tool description tells the model when product search is relevant; the input schema
+documents how a request maps onto filters. Try:
+
+- "Find wireless keyboards under $150"
+- "Show in-stock running shoes"
+- "Find noise-cancelling headphones"
+
+## What it calls
+
+```text
+GET /api/products?query=wireless+keyboards&maxPrice=150
+```
+
+Return data in this shape:
+
+```json
+{
+  "summary": "Wireless keyboards under $150",
+  "products": [
+    {
+      "id": "keyboard-01",
+      "name": "Slim Wireless Keyboard",
+      "description": "Compact low-profile keyboard with multi-device pairing.",
+      "category": "Keyboards",
+      "price": 89,
+      "inStock": true
+    }
+  ]
+}
+```
+
+An empty `products` array is where `mapOutput` returns `{ status: "empty" }` rather than
+a successful result with nothing in it — see [Concepts](/docs/concepts).
+
+## Running it
+
+```bash
+npm install @nom-ai/sdk ai @ai-sdk/openai lucide-react zod
+npx shadcn@latest add alert badge button card empty field input skeleton spinner
+```
+
+Set `OPENAI_API_KEY` in `.env.local`, then copy `components/agent-product-search.tsx`,
+`lib/agent-contracts.ts`, and `app/api/agent/route.ts` into your app and render
+`<AgentProductSearch />` from a page.
