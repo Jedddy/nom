@@ -1,0 +1,7 @@
+# Build context is the repository root; keep installed and generated output out of it
+# so the image builds from source rather than copying over the layer's own install.
+**/node_modules
+**/.next
+**/out
+**/.source
+**/.git

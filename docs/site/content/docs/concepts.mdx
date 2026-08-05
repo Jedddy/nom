@@ -1,0 +1,86 @@
+---
+title: Concepts
+description: How nom addresses components, what states they move through, and where the trust boundary sits.
+---
+
+# Concepts
+
+Four ideas carry most of `nom`. Read these before writing code — they explain why the
+API asks for what it asks for.
+
+## A component instance is the unit, not a component type
+
+You register a mounted **instance**, not a class of component. Each registration has a
+stable `id`, and each logical tool on it has a `key`. Together they form an address:
+
+```text
+id: "product-table"  +  toolKey: "search-products"  →  one addressable target
+```
+
+Because the address is instance-specific, two copies of the same reusable component can
+be on screen at once and stay independently addressable — give them different `id`s.
+Duplicate active `id`s are rejected rather than silently overwritten, so a collision is
+a loud error instead of a component that mysteriously updates the wrong panel.
+
+Registration handles carry an internal ownership token. Cleanup is idempotent, and a
+stale cleanup cannot unregister a newer owner that reused the same `id`. That is what
+makes React Strict Mode's mount, unmount, remount cycle safe.
+
+## Every component sits in one of five states
+
+The render function receives exactly one snapshot at a time:
+
+| Status    | Meaning                                                                             |
+| --------- | ----------------------------------------------------------------------------------- |
+| `idle`    | No request has run yet.                                                             |
+| `loading` | The tool is running. Previous successful props may be available as `previousProps`. |
+| `success` | Validated and mapped props are available as `props`.                                |
+| `empty`   | The tool explicitly returned no displayable result.                                 |
+| `failure` | Validation, authorization, execution, or mapping failed.                            |
+
+`empty` is deliberately separate from `success` with a zero-length list. "The query ran
+and matched nothing" and "here are your results" are different things to show a user,
+so `nom` makes you handle them separately rather than inferring one from the other.
+
+`previousProps` on `loading` lets you show stale content behind a progress indicator
+without misrepresenting old data as the new result.
+
+## One pipeline runs every call
+
+Each accepted tool call follows the same path, and every stage can fail:
+
+```text
+loading → input validation → host authorization → execution
+        → output validation → developer mapping → success | empty
+```
+
+Each failure stage has a typed code. What reaches your render function is a safe
+message; the raw cause goes to the controller's `onError` callback for your own
+observability. That split is intentional — model-facing and user-facing surfaces should
+not leak internal error detail.
+
+Starting a new request for a component supersedes the current one. The controller
+aborts the old signal and gives the replacement a unique token, which is checked after
+every asynchronous boundary. Correctness does not depend on your executor honoring
+`AbortSignal`.
+
+## The model is never trusted
+
+Runtime schema validation is authoritative even when a provider reports strict tool
+calling. Tool output is validated a second time in the browser before it can reach a
+component mapper.
+
+Mounting a component changes **discoverability**, not **authorization**. A tool marked
+`approval: "required"` is denied unless the controller has an authorization policy that
+allows it. Server integrations resolve addresses against server-owned definitions —
+client-supplied descriptions, schemas, approval rules, and executors are never
+authoritative.
+
+Component data reaches the model only through an explicit projection you write. By
+default the model sees a fixed acknowledgement, not your data.
+
+## Next
+
+- [Getting Started](/docs/getting-started) — put this to work.
+- [Architecture](/docs/architecture) — the same material at full depth, including
+  concurrency and server rendering.

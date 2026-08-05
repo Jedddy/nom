@@ -1,0 +1,64 @@
+---
+title: Dashboard
+description: One prompt updating several components at once.
+---
+
+# Dashboard example
+
+**What it demonstrates:** a single request can fan out to more than one component. "Show
+sales and orders from July 1 to July 15" updates two independent components, each with
+its own lifecycle — one can succeed while the other fails.
+
+It also shows a host-owned **default tool**: the model resolves relative dates ("last
+week") to exact dates before any component tool runs.
+
+Source: [`examples/dashboard`](https://github.com/Jedddy/nom/tree/main/examples/dashboard).
+These files are meant to be copied into an existing application; the directory is not a
+standalone app.
+
+## What the model sees
+
+The mounted manifest advertises both components. The model picks which to call:
+
+- "Show sales from July 1 to July 15" → the sales cards.
+- "Show pending orders" → the orders table.
+- "Show sales and orders from July 1 to July 15" → both.
+
+`nom` routes and validates each returned call. It does not decide how many components a
+request should update — if your product needs guaranteed coverage, enforce that in your
+own orchestration.
+
+## What it calls
+
+The component tools call your application's endpoints with resolved values:
+
+```text
+GET /api/sales?startDate=2026-07-01&endDate=2026-07-15
+GET /api/orders?status=all&startDate=2026-07-01&endDate=2026-07-15
+```
+
+`/api/sales` returns:
+
+```json
+{
+  "rangeLabel": "Jul 1–15, 2026",
+  "revenue": 340326,
+  "orders": 2697,
+  "conversionRate": 4.3,
+  "updatedAt": "Just now"
+}
+```
+
+Swap those endpoints for your own data layer — the shapes are what the output schemas
+validate against.
+
+## Running it
+
+```bash
+npm install @nom-ai/sdk ai @ai-sdk/openai zod
+npx shadcn@latest add alert badge button card field input skeleton spinner table
+```
+
+Set `OPENAI_API_KEY` in `.env.local`, then copy `components/agent-dashboard.tsx`,
+`lib/agent-contracts.ts`, and `app/api/agent/route.ts` into your app and render
+`<AgentDashboard />` from a page.

@@ -1,0 +1,161 @@
+---
+title: Getting Started
+description: From install to one component rendering agent-supplied props.
+---
+
+# Getting Started
+
+By the end of this page one component in your application updates from a natural-language
+request. Roughly fifteen minutes.
+
+## Install
+
+```bash
+bun add @nom-ai/sdk zod
+```
+
+The examples use Zod 4. Any schema library implementing Standard Schema and Standard
+JSON Schema works.
+
+`react` is a peer dependency (18.3 or 19). `ai` is optional — you only need it when you
+import `@nom-ai/sdk/ai-sdk`.
+
+## Mount the provider
+
+Create one controller and mount its provider near your application root. The controller
+owns registration, execution, and lifecycle for every component beneath it.
+
+```tsx title="src/agent-components.tsx"
+"use client";
+
+import type { ReactNode } from "react";
+import { AgentComponentController, AgentComponentProvider } from "@nom-ai/sdk";
+
+export const agentComponents = new AgentComponentController();
+
+export function AgentComponentsProvider({ children }: { readonly children: ReactNode }) {
+  return <AgentComponentProvider controller={agentComponents}>{children}</AgentComponentProvider>;
+}
+```
+
+```tsx
+<AgentComponentsProvider>
+  <App />
+</AgentComponentsProvider>
+```
+
+## Define a tool
+
+A tool declares its input and output schemas, how to execute, and how to turn the result
+into props. `mapOutput` is where you decide what counts as an empty result.
+
+```tsx title="src/components/AgentProductTable.tsx"
+import { z } from "zod";
+import { defineAgentTool } from "@nom-ai/sdk";
+
+const productSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number(),
+});
+
+const searchProducts = defineAgentTool({
+  key: "search-products",
+  description: "Find products matching a search query.",
+  inputSchema: z.object({ query: z.string() }),
+  outputSchema: z.object({ products: z.array(productSchema) }),
+  execute: async ({ query }) => {
+    const response = await fetch(`/api/products?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error("Could not load products.");
+    return response.json();
+  },
+  mapOutput: ({ products }) =>
+    products.length === 0 ? { status: "empty" } : { status: "success", props: { products } },
+});
+```
+
+The `description` is model-facing — it is how the agent decides whether to call this
+tool. Write it for the model, not for your teammates.
+
+## Register the component
+
+`AgentComponent` registers the instance and hands your render function one snapshot at a
+time. Handle all five states — see [Concepts](/docs/concepts) for what each one means.
+
+```tsx title="src/components/AgentProductTable.tsx"
+import { AgentComponent } from "@nom-ai/sdk";
+import { ProductTable } from "./ProductTable";
+import { ProductTableSkeleton } from "./ProductTableSkeleton";
+
+export function AgentProductTable() {
+  return (
+    <AgentComponent
+      id="product-table"
+      instructions="Use this component when the user wants to find or compare products."
+      tools={[searchProducts]}
+    >
+      {(snapshot) => (
+        <section aria-busy={snapshot.status === "loading"}>
+          {snapshot.status === "loading" && <ProductTableSkeleton />}
+          {snapshot.status === "failure" && <p>{snapshot.error.message}</p>}
+          {snapshot.status === "empty" && <p>No products found.</p>}
+          {snapshot.status === "success" && <ProductTable products={snapshot.props.products} />}
+        </section>
+      )}
+    </AgentComponent>
+  );
+}
+```
+
+`ProductTable` is your own component. Keep callbacks, refs, JSX, and static configuration
+in your application — map only validated data to props.
+
+If a render prop does not fit your structure, `useAgentComponent` takes the same
+arguments and returns the snapshot directly.
+
+## Run a request
+
+With the controller and your components in one JavaScript runtime, call it directly:
+
+```ts
+await agentComponents.execute({
+  componentId: "product-table",
+  toolKey: "search-products",
+  input: { query: "wireless keyboard" },
+});
+```
+
+The table should move through `loading` and land on `success` or `empty`. That is the
+whole loop — everything else is wiring a real model in place of that hard-coded call.
+
+## Connect a real agent
+
+`nom` is model-provider neutral. With AI SDK 6 installed, expose every mounted component
+tool to the model:
+
+```bash
+bun add ai
+```
+
+```ts
+import { generateText } from "ai";
+import { createAISDKTools } from "@nom-ai/sdk/ai-sdk";
+
+const { tools } = createAISDKTools(agentComponents);
+
+await generateText({
+  model,
+  prompt: "Show me wireless keyboards",
+  tools,
+});
+```
+
+The model may return no component call, one, or several. `nom` routes and validates what
+it receives; it does not decide how many components a request should update.
+
+## Next
+
+- [Concepts](/docs/concepts) — the mental model behind the API above.
+- [AI SDK](/docs/ai-sdk) — server-side models, the browser bridge, and host-owned
+  default tools.
+- [Examples](/docs/examples/dashboard) — two complete applications.
