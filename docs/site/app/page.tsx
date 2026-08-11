@@ -1,8 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { baseOptions } from "@/lib/layout.shared";
 import { DemoSlot } from "@/components/demo-slot";
 import { DemoIllustration } from "@/components/demo-illustration";
+import { JsonLd } from "@/components/json-ld";
+import { siteSchema } from "@/lib/schema";
+import { absoluteUrl, siteDescription, siteName } from "@/lib/metadata";
+
+export const metadata: Metadata = {
+  // `title.absolute` opts out of the root layout's `%s — nom` template, which would
+  // otherwise render "nom — … — nom" here.
+  title: {
+    absolute: `${siteName} — connect AI tool calls to React component props`,
+  },
+  description: siteDescription,
+  alternates: { canonical: absoluteUrl("/") },
+};
 
 const toolSample = `const searchProducts = defineAgentTool({
   key: "search-products",
@@ -18,6 +32,7 @@ const toolSample = `const searchProducts = defineAgentTool({
 export default function Home() {
   return (
     <HomeLayout {...baseOptions()}>
+      <JsonLd schema={siteSchema()} />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-6 py-16 sm:py-24">
         <section className="flex flex-col gap-6">
           <p className="font-mono text-sm text-fd-muted-foreground">@nom-ai/sdk</p>

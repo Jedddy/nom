@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "bun run generate:seo && next build",
+    "generate:seo": "bun run scripts/generate-og-image.tsx && bun run scripts/generate-llms-txt.ts",
     "start": "next start",
     "lint": "eslint"
   },

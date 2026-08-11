@@ -33,13 +33,62 @@ app/
   docs/
     layout.tsx                 docs shell (sidebar, nav)
     [[...slug]]/page.tsx       renders any page from content/docs
+  not-found.tsx                404 (nginx serves the exported 404.html)
+  robots.ts                    /robots.txt
+  sitemap.ts                   /sitemap.xml
 components/                    landing-page components
 content/docs/                  the documentation itself (MDX)
 lib/
   source.ts                    content loader
   layout.shared.ts             nav options shared by both layouts
+  metadata.ts                  site URL, canonical URLs, per-page metadata
+  schema.ts                    JSON-LD graphs
+scripts/                       run by `bun run build` before `next build`
 source.config.ts               Fumadocs collection definition
 ```
+
+## Metadata and SEO
+
+Every page's `<head>` comes from `lib/metadata.ts`. Pages call `createMetadata()` rather
+than returning a metadata object directly, because Next.js **replaces** `openGraph` and
+`twitter` wholesale instead of merging them field by field — a page that declares its own
+`openGraph` silently drops the card image the root layout set. Restating every field in
+one helper is what keeps that from happening per page.
+
+Canonical URLs carry a trailing slash to match `trailingSlash: true`. The other form
+answers with a redirect, which is the duplicate-URL signal canonical tags exist to remove.
+
+Frontmatter `description` is not optional in practice: it becomes the meta description,
+the Open Graph description, the JSON-LD description, and the `llms.txt` entry. Aim for
+120–155 characters — shorter than that leaves the search snippet half empty.
+
+`app/sitemap.ts` deliberately emits no `lastModified`. `architecture.mdx`, `ai-sdk.mdx`
+and `devtools.mdx` are one-line wrappers around markdown that lives outside this package,
+so their own timestamps stay frozen while the content they publish changes.
+
+### The site URL
+
+`NEXT_PUBLIC_SITE_URL` overrides the `https://nom.jpndev.xyz` default at build time. It
+has to be absolute — it is what turns every canonical, Open Graph, sitemap and JSON-LD
+URL into an absolute one.
+
+### Generated assets
+
+`bun run build` runs `bun run generate:seo` first, which writes three gitignored files
+into `public/`:
+
+- **`og.png`** — the social card, rendered from `components/og-card.tsx` by
+  `next/og`. It is generated to a file rather than served from an
+  `app/opengraph-image.tsx` metadata route because under `output: export` that route
+  lands in the export as an extensionless file named `opengraph-image`; a static server
+  reports it as `application/octet-stream` and every link unfurler then ignores it.
+- **`llms.txt`** and **`llms-full.txt`** — the curated index and the whole documentation
+  set as one flat markdown file, walking `meta.json` so the order matches the sidebar and
+  resolving `<include>` so the three wrapper pages are not empty. They cannot be route
+  handlers for the same reason: `trailingSlash: true` would turn `/llms.txt` into a
+  directory.
+
+Run `bun run generate:seo` on its own if you want them during `bun dev`.
 
 ## Writing docs
 
@@ -103,3 +152,7 @@ settings that do earn their place:
 
 Disabled. Fumadocs' search needs a server route a static export cannot emit. Turning it on
 means either a hosted search provider or dropping the static export.
+
+On-site search being off is part of why `llms-full.txt` matters: it is the only form of
+the documentation an assistant can read in one fetch without executing the site's
+JavaScript.

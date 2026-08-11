@@ -20,6 +20,11 @@
 # fumadocs-mdx generated content index
 /.source/
 
+# written by scripts/ during `bun run build`
+/public/og.png
+/public/llms.txt
+/public/llms-full.txt
+
 # production
 /build
 
