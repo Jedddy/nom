@@ -5,7 +5,7 @@ import { baseOptions } from "@/lib/layout.shared";
 
 export default function DocsRouteLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <DocsLayout {...baseOptions()} tree={source.pageTree}>
+    <DocsLayout {...baseOptions({ docsLink: false })} tree={source.pageTree}>
       {children}
     </DocsLayout>
   );
